@@ -1,0 +1,1 @@
+// DELETE THIS FILE. It has been moved to src/types.ts
