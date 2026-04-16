@@ -31,6 +31,7 @@ const App: React.FC = () => {
   const [authLoading, setAuthLoading] = useState(true);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
+  const [permissionError, setPermissionError] = useState(false);
 
   // App Data State
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -89,8 +90,12 @@ const App: React.FC = () => {
              focusTimer.setSettings(data.focusSettings);
           }
           setDataLoaded(true);
+          setPermissionError(false);
         } catch (error) {
           console.error("Error loading user data (Check Firebase Rules):", error);
+          if (error instanceof Error && error.message.includes('insufficient permissions')) {
+            setPermissionError(true);
+          }
           // Still mark as loaded to allow the app to function with local state
           setDataLoaded(true);
         }
@@ -181,6 +186,18 @@ const App: React.FC = () => {
         focusTime={focusTimer.settings.mode === 'countdown' ? focusTimer.timeLeft : focusTimer.elapsedTime}
     >
       <div className={`${focusTimer.isBlurred ? 'blur-md pointer-events-none' : ''} transition-all duration-300`}>
+          {permissionError && (
+            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-4 rounded-lg mb-6 flex flex-col gap-2 animate-fade-in">
+              <div className="flex items-center gap-2 text-amber-800 dark:text-amber-200 font-bold">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                Database Permissions Required
+              </div>
+              <p className="text-sm text-amber-700 dark:text-amber-300">
+                Your data isn't syncing because Firestore Security Rules are not set up. 
+                Please go to your Firebase Console and update your Rules tab with the provided configuration.
+              </p>
+            </div>
+          )}
           {view === 'dashboard' && (
             <div className="mb-6">
               {userProfile && (

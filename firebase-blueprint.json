@@ -1,0 +1,41 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "name": { "type": "string" },
+        "userType": { "type": "string", "enum": ["school", "college"] },
+        "standard": { "type": "string" },
+        "collegeName": { "type": "string" },
+        "branch": { "type": "string" },
+        "year": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["uid", "email", "name"]
+    },
+    "UserData": {
+      "title": "UserData",
+      "description": "Generic container for user data lists (subjects, notes, etc.)",
+      "type": "object",
+      "properties": {
+        "items": { "type": "array" },
+        "lastUpdated": { "type": "number" }
+      }
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile document"
+    },
+    "/users/{userId}/userData/{collectionName}": {
+      "schema": "UserData",
+      "description": "User specific data collections"
+    }
+  }
+}

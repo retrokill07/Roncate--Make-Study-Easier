@@ -1,0 +1,47 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Validate User Profile
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'name']) &&
+             data.uid is string &&
+             data.email is string &&
+             data.name is string &&
+             data.name.size() < 100;
+    }
+
+    // Validate User Data Container
+    function isValidUserData(data) {
+      return data.items is list &&
+             data.items.size() <= 1000;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    // User Profiles
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if isOwner(userId) && isValidUser(request.resource.data);
+      
+      // User Data Subcollections
+      match /userData/{collectionName} {
+        allow read: if isOwner(userId);
+        allow write: if isOwner(userId) && (collectionName == 'focusSettings' || isValidUserData(request.resource.data));
+      }
+    }
+  }
+}
