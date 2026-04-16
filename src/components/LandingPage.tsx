@@ -1,13 +1,16 @@
+
 import React from 'react';
 import { Logo, BrainIcon, NoteIcon, CalendarIcon, SunIcon, MoonIcon } from './Icons';
 
 interface LandingPageProps {
+  user: any;
   onOpenAuth: () => void;
+  onGoToDashboard: () => void;
   isDarkMode: boolean;
   toggleDarkMode: () => void;
 }
 
-const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth, isDarkMode, toggleDarkMode }) => {
+const LandingPage: React.FC<LandingPageProps> = ({ user, onOpenAuth, onGoToDashboard, isDarkMode, toggleDarkMode }) => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-white dark:from-slate-900 dark:to-slate-950 flex flex-col transition-colors duration-200">
       <nav className="flex items-center justify-between px-6 py-4 max-w-7xl mx-auto w-full">
@@ -22,12 +25,21 @@ const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth, isDarkMode, toggl
           >
              {isDarkMode ? <SunIcon className="w-6 h-6" /> : <MoonIcon className="w-6 h-6" />}
           </button>
-          <button 
-            onClick={onOpenAuth}
-            className="text-indigo-600 dark:text-indigo-400 font-medium hover:text-indigo-800 dark:hover:text-indigo-300 transition"
-          >
-            Login
-          </button>
+          {user ? (
+            <button 
+              onClick={onGoToDashboard}
+              className="text-indigo-600 dark:text-indigo-400 font-bold hover:text-indigo-800 dark:hover:text-indigo-300 transition"
+            >
+              Go to Dashboard
+            </button>
+          ) : (
+            <button 
+              onClick={onOpenAuth}
+              className="text-indigo-600 dark:text-indigo-400 font-medium hover:text-indigo-800 dark:hover:text-indigo-300 transition"
+            >
+              Login
+            </button>
+          )}
         </div>
       </nav>
 
@@ -40,12 +52,21 @@ const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth, isDarkMode, toggl
           Roncate isn't just a note-taking app. It tracks your syllabus, plans your exams, and uses AI to adapt your study schedule based on your progress.
         </p>
 
-        <button 
-          onClick={onOpenAuth}
-          className="bg-indigo-600 dark:bg-indigo-500 text-white px-8 py-4 rounded-full text-lg font-bold shadow-lg hover:bg-indigo-700 dark:hover:bg-indigo-600 hover:shadow-xl transition transform hover:-translate-y-1"
-        >
-          Start Learning Now
-        </button>
+        {user ? (
+          <button 
+            onClick={onGoToDashboard}
+            className="bg-indigo-600 dark:bg-indigo-500 text-white px-8 py-4 rounded-full text-lg font-bold shadow-lg hover:bg-indigo-700 dark:hover:bg-indigo-600 hover:shadow-xl transition transform hover:-translate-y-1"
+          >
+            Go to My Dashboard
+          </button>
+        ) : (
+          <button 
+            onClick={onOpenAuth}
+            className="bg-indigo-600 dark:bg-indigo-500 text-white px-8 py-4 rounded-full text-lg font-bold shadow-lg hover:bg-indigo-700 dark:hover:bg-indigo-600 hover:shadow-xl transition transform hover:-translate-y-1"
+          >
+            Start Learning Now
+          </button>
+        )}
 
         <div className="grid md:grid-cols-3 gap-8 mt-16 w-full">
           <FeatureCard 

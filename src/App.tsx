@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
@@ -47,7 +48,6 @@ const App: React.FC = () => {
   };
 
   const focusTimer = useFocusTimer(defaultFocusSettings, (session) => {
-    // When session completes, add to list
     setFocusSessions(prev => [session, ...prev]);
   });
 
@@ -67,15 +67,18 @@ const App: React.FC = () => {
   // Auth Listener & Data Loading
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setUser(currentUser);
       if (currentUser) {
+        setUser(currentUser);
+        // Switch view IMMEDIATELY so user is never stuck
+        if (view === 'landing') setView('dashboard');
+        
         try {
           // 1. Fetch Profile
           const docRef = doc(db, "users", currentUser.uid);
           const docSnap = await getDoc(docRef);
           if (docSnap.exists()) setUserProfile(docSnap.data());
 
-          // 2. Fetch User Data from Firestore
+          // 2. Fetch User Data
           const data = await loadUserData(currentUser.uid);
           setSubjects(data.subjects || []);
           setNotes(data.notes || []);
@@ -86,11 +89,13 @@ const App: React.FC = () => {
              focusTimer.setSettings(data.focusSettings);
           }
           setDataLoaded(true);
-          setView('dashboard');
         } catch (error) {
-          console.error("Error init user:", error);
+          console.error("Error loading user data (Check Firebase Rules):", error);
+          // Still mark as loaded to allow the app to function with local state
+          setDataLoaded(true);
         }
       } else {
+        setUser(null);
         setUserProfile(null);
         setView('landing');
         setDataLoaded(false);
@@ -98,10 +103,9 @@ const App: React.FC = () => {
       setAuthLoading(false);
     });
     return () => unsubscribe();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
-  // --- Data Persistence (Sync to Firestore on Change) ---
-  
+  // --- Data Persistence ---
   useEffect(() => {
     if (user && dataLoaded) saveUserData(user.uid, "subjects", subjects);
   }, [subjects, user, dataLoaded]);
@@ -118,8 +122,6 @@ const App: React.FC = () => {
     if (user && dataLoaded) saveUserData(user.uid, "focusSessions", focusSessions);
   }, [focusSessions, user, dataLoaded]);
 
-  // Notes can be heavy, but for this simpler implementation we sync the array.
-  // In a pro app, you'd sync individual notes.
   useEffect(() => {
     if (user && dataLoaded) saveUserData(user.uid, "notes", notes);
   }, [notes, user, dataLoaded]);
@@ -135,23 +137,34 @@ const App: React.FC = () => {
   };
 
   if (authLoading) {
-    return <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center">
-      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-    </div>;
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center gap-4">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+        <p className="text-slate-500 animate-pulse">Syncing your progress...</p>
+      </div>
+    );
   }
 
+  // Final rendering condition: Show landing ONLY if we definitely have no user
   if (!user || view === 'landing') {
     return (
       <>
         <LandingPage 
+          user={user}
           onOpenAuth={() => setShowAuthModal(true)} 
+          onGoToDashboard={() => setView('dashboard')}
           isDarkMode={isDarkMode} 
           toggleDarkMode={toggleDarkMode} 
         />
         <AuthModal 
           isOpen={showAuthModal} 
           onClose={() => setShowAuthModal(false)}
-          onLoginSuccess={(profile) => setUserProfile(profile)}
+          onLoginSuccess={(profile) => {
+            // Force manual update to bypass any observer lag
+            setUser(auth.currentUser);
+            setUserProfile(profile);
+            setView('dashboard'); 
+          }}
         />
       </>
     );
@@ -171,19 +184,29 @@ const App: React.FC = () => {
           {view === 'dashboard' && (
             <div className="mb-6">
               {userProfile && (
-                <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 p-4 rounded-lg mb-6 flex items-center justify-between">
-                  <div>
-                      <h3 className="font-bold text-indigo-900 dark:text-indigo-200">
-                        Welcome, {userProfile.name}
-                      </h3>
-                      <p className="text-xs text-indigo-700 dark:text-indigo-300">
-                        {userProfile.userType === 'school' 
-                          ? `Student • Class ${userProfile.standard}`
-                          : `${userProfile.collegeName} • ${userProfile.branch} • Year ${userProfile.year}`
-                        }
-                      </p>
+                <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 p-4 rounded-lg mb-6 flex items-center justify-between animate-fade-in">
+                  <div className="flex items-center gap-4">
+                    {userProfile.photoURL && (
+                      <img 
+                        src={userProfile.photoURL} 
+                        alt={userProfile.name} 
+                        className="w-12 h-12 rounded-full border-2 border-indigo-200 dark:border-indigo-700 object-cover"
+                        referrerPolicy="no-referrer"
+                      />
+                    )}
+                    <div>
+                        <h3 className="font-bold text-indigo-900 dark:text-indigo-200 text-lg">
+                          Welcome, {userProfile.name}
+                        </h3>
+                        <p className="text-xs text-indigo-700 dark:text-indigo-300 font-medium">
+                          {userProfile.userType === 'school' 
+                            ? `Student • Class ${userProfile.standard}`
+                            : `${userProfile.collegeName} • ${userProfile.branch} • Year ${userProfile.year}`
+                          }
+                        </p>
+                    </div>
                   </div>
-                  <button onClick={handleLogout} className="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline">
+                  <button onClick={handleLogout} className="px-4 py-2 bg-white dark:bg-slate-800 border border-indigo-200 dark:border-indigo-900 rounded-lg text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-600 hover:text-white transition-all">
                     Log Out
                   </button>
                 </div>
@@ -196,43 +219,13 @@ const App: React.FC = () => {
               />
             </div>
           )}
-          {view === 'focus' && (
-            <FocusMode 
-              sessions={focusSessions}
-              timer={focusTimer}
-            />
-          )}
-          {view === 'syllabus' && (
-            <SyllabusTracker 
-              subjects={subjects} 
-              syllabus={syllabus} 
-              setSubjects={setSubjects} 
-              setSyllabus={setSyllabus} 
-            />
-          )}
-          {view === 'notes' && (
-            <NotesManager 
-              subjects={subjects} 
-              notes={notes} 
-              setNotes={setNotes} 
-            />
-          )}
-          {view === 'exams' && (
-            <ExamPlanner 
-              exams={exams} 
-              subjects={subjects} 
-              setExams={setExams} 
-            />
-          )}
-          {view === 'ai-coach' && (
-            <AICoach 
-              syllabus={syllabus} 
-              exams={exams} 
-            />
-          )}
+          {view === 'focus' && <FocusMode sessions={focusSessions} timer={focusTimer} />}
+          {view === 'syllabus' && <SyllabusTracker subjects={subjects} syllabus={syllabus} setSubjects={setSubjects} setSyllabus={setSyllabus} />}
+          {view === 'notes' && <NotesManager subjects={subjects} notes={notes} setNotes={setNotes} />}
+          {view === 'exams' && <ExamPlanner exams={exams} subjects={subjects} setExams={setExams} />}
+          {view === 'ai-coach' && <AICoach syllabus={syllabus} exams={exams} />}
       </div>
 
-      {/* Global Punishment Overlays */}
       {focusTimer.showWarning && (
           <div className="fixed top-10 left-1/2 transform -translate-x-1/2 bg-red-600 text-white px-8 py-4 rounded-full shadow-2xl z-50 animate-bounce flex items-center gap-2 font-bold text-lg border-2 border-white">
              DON'T GET DISTRACTED!
